@@ -227,6 +227,7 @@ public class MainPresenter<V extends MainContract.View> extends BasePresenter<V>
                     @Override
                     public void onNext(EQKDResultList mEQKDResultList) {
                      //   getView().dismissProgressDialog();
+                        Log.d("dialogMessage", "在第一支API內: "+nowInList+" urlnow:"+urlNow);
                         String EQKDNM="";
                         if (mEQKDResultList.getmEQKDResponseList().size() < 1) {
                             getView().showDialogCaveatMessage(getView().getResourceString(R.string.get_eqkd_error_no_data));

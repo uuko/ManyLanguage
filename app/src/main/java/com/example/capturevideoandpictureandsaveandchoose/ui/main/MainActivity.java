@@ -21,12 +21,14 @@ import android.media.ExifInterface;
 import android.media.MediaPlayer;
 import android.media.tv.TvContract;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
 import android.provider.MediaStore;
 import android.text.SpannableString;
 import android.text.style.RelativeSizeSpan;
+import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -116,6 +118,11 @@ public class MainActivity extends BaseActivity implements MainContract.View, Vie
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         init();
+        DisplayMetrics metrics = new DisplayMetrics();
+        getWindowManager().getDefaultDisplay().getMetrics(metrics);
+        int width = metrics.widthPixels;     // 螢幕寬度（畫素）
+        int height = metrics.heightPixels;   // 螢幕高度（畫素）
+        Log.d("bigggg", "onCreate: "+width*height);
         mPresenter.onAttached(this);
         mPresenter.onGetDisposableToken(sn);
         filePartition = new FilePartition();
@@ -295,7 +302,7 @@ public class MainActivity extends BaseActivity implements MainContract.View, Vie
 
     private void pickImageFromGallery() {
         //Create an Intent with action as ACTION_PICK
-        Intent intent = new Intent(Intent.ACTION_PICK);
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         // Sets the type as image/*. This ensures only components of type image are selected
         intent.setType("image/*");
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
@@ -307,7 +314,7 @@ public class MainActivity extends BaseActivity implements MainContract.View, Vie
     }
 
     private void pickVideoFromGallery() {
-        Intent intent = new Intent(Intent.ACTION_PICK);
+        Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
         intent.setType("video/*");
         intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
         String[] mimeTypes = {"video/mp4", "video/mov"};
@@ -543,7 +550,67 @@ public class MainActivity extends BaseActivity implements MainContract.View, Vie
                             new Handler().postDelayed(new Runnable(){
                                 @Override
                                 public void run() {
-                                    postApi(data);
+                                    Integer now = 0, urlnow = 0;
+                                   // Uri selectedImage = data.getClipData().getItemAt(0).getUri();
+                                    ArrayList<String> uriList = new ArrayList<String>();
+                                    if (data.getClipData() != null) {
+                                        for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                                            uriList.add(getPath(data.getClipData().getItemAt(i).getUri()));
+                                          //                    Log.e("gggg", "" + uriList.get(i));
+                                        }
+                                    } else if (Build.VERSION.SDK_INT >= 16 && data.getClipData() == null) {
+                                        uriList.add(getPath(data.getData()));
+                                    }
+                                    allPhoto = uriList.size();
+
+                                    nowPhoto = 0;
+                                    for (int i = 0; i < uriList.size(); i++) {
+//                                        uriList.add(getPath(data.getClipData().getItemAt(i).getUri()));
+                                        intoData = new ChooseDeviceItemData();
+                                        haveNow = false;
+                                        String a = uriList.get(i);
+                                        Log.d("dialogMessage", "選擇的照片Uri: " + a);
+                                        for (int j = 0; j < deviceDataList.size(); j++) {
+                                            if (uriList.get(i).split("/")[5].split("_")[0].equals(deviceDataList.get(j).getEQNO())) {
+
+                                                intoData = deviceDataList.get(j);
+                                                now = j;
+                                                haveNow = true;
+                                                urlnow = i;
+
+                                                Log.d("dialogMessage", "目前的EQNO + urlNow : + haveNow: + Now :" + deviceDataList.get(j).getEQNO() +urlnow.toString()+ haveNow.toString() + now.toString());
+                                                break;
+                                            }
+                                        }
+
+                                        if (!haveNow) {
+                                            allPhoto--;
+                                            setDialogMessage(nowPhoto, false, getPath(data.getClipData().getItemAt(i).getUri()).split("/")[5].split("_")[0] + "此照片無對應資料", "");
+
+                                        } else {
+
+                                            if ("".equals(recordSubjectValue)) {
+                                                deviceDataList.get(now).setRecordSubject("沒有輸入主旨");
+                                            } else {
+                                                deviceDataList.get(now).setRecordSubject(recordSubjectValue);
+                                            }
+                                            Log.d("dialogMessage", "打第一支API前目前在第幾個 " + now + " 主旨" + deviceDataList.get(now).getRecordSubject());
+                                            count++;
+                                            mPresenter.onGetEQKDDataNoImg(account, deviceDataList.get(now).getCO(),
+                                                    deviceDataList.get(now).getPMFCT(),
+                                                    deviceDataList.get(now).getEQKD(),
+                                                    data,
+                                                    now,
+                                                    urlnow,
+                                                    //1是圖片
+                                                    1
+                                            );
+                                            haveNow = false;
+                                            now=0;
+                                        }
+
+
+                                    }
                                 }
                             },100);
                         }
@@ -637,25 +704,34 @@ public class MainActivity extends BaseActivity implements MainContract.View, Vie
                                     Uri selectedVideo = data.getData();
                                     Integer now = 0,urlnow=0;
                                     ArrayList<String> uriList = new ArrayList<String>();
-                                    ChooseDeviceItemData intoData=new ChooseDeviceItemData();
-                                    allPhoto=data.getClipData().getItemCount();
-                                    for (int i = 0; i < data.getClipData().getItemCount(); i++) {
-                                        uriList.add(getPath(data.getClipData().getItemAt(i).getUri()));
+                                    if (data.getClipData() != null) {
+                                        for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                                            uriList.add(getPath(data.getClipData().getItemAt(i).getUri()));
+                                            //                    Log.e("gggg", "" + uriList.get(i));
+                                        }
+                                    } else if (Build.VERSION.SDK_INT >= 16 && data.getClipData() == null) {
+                                        uriList.add(getPath(data.getData()));
                                     }
+
+                                    ChooseDeviceItemData intoData=new ChooseDeviceItemData();
+
+//                                    for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+//                                        uriList.add(getPath(data.getClipData().getItemAt(i).getUri()));
+//                                    }
 
                                     // TODO here====================
                                     ArrayList<String> compressList = new ArrayList<>();
                                     compressList.addAll(compressVideo(uriList));
                                     countFile = 0;
-                                    allPhoto=data.getClipData().getItemCount();
+                                    allPhoto=uriList.size();
                                     nowPhoto=0;
-                                    for (int i = 0; i < data.getClipData().getItemCount(); i++) {
-                                        uriList.add(getPath(data.getClipData().getItemAt(i).getUri()));
+                                    for (int i = 0; i < uriList.size(); i++) {
+//                                        uriList.add(getPath(data.getClipData().getItemAt(i).getUri()));
 //                filePartition.partition(uriList.get(i), 50 * 1024 * 1024);
                                         for (int j=0;j<deviceDataList.size();j++){
                                             Log.d("videodialogMessage", "onActivityResult: "+getPath(data.getClipData().getItemAt(i).getUri())  );
 
-                                            if (getPath(data.getClipData().getItemAt(i).getUri()).split("/")[6].split("_")[0].equals(deviceDataList.get(j).getEQNO())){
+                                            if (uriList.get(i).split("/")[6].split("_")[0].equals(deviceDataList.get(j).getEQNO())){
                                                 now=j;haveNow=true;urlnow=i;
                                                 intoData=deviceDataList.get(j);
                                                 Log.d("videodialogMessage", "EQNO + haveNow: + Now :"+deviceDataList.get(j).getEQNO()+haveNow.toString()+now.toString());
@@ -673,7 +749,7 @@ public class MainActivity extends BaseActivity implements MainContract.View, Vie
 
                                         if (!haveNow){
                                             allPhoto--;
-                                            setDialogMessage(nowPhoto,false,getPath(data.getClipData().getItemAt(i).getUri()).split("/")[6].split("_")[0]+"此照片無對應資料","");
+                                            setDialogMessage(nowPhoto,false,uriList.get(i).split("/")[6].split("_")[0]+"此照片無對應資料","");
 
                                         }else {
                                             if ("".equals(recordSubjectValue)) {
@@ -859,7 +935,7 @@ public class MainActivity extends BaseActivity implements MainContract.View, Vie
                     haveNow = true;
                     urlnow = i;
 
-                    Log.d("dialogMessage", "目前的EQNO + haveNow: + Now :" + deviceDataList.get(j).getEQNO() + haveNow.toString() + now.toString());
+                    Log.d("dialogMessage", "目前的EQNO + urlNow : + haveNow: + Now :" + deviceDataList.get(j).getEQNO() +urlnow.toString()+ haveNow.toString() + now.toString());
                     break;
                 }
             }
@@ -908,17 +984,26 @@ public class MainActivity extends BaseActivity implements MainContract.View, Vie
 
         //video
         ArrayList<String> uriList = new ArrayList<String>();
-        for (int i = 0; i < data.getClipData().getItemCount(); i++) {
-            uriList.add(getPath(data.getClipData().getItemAt(i).getUri()));
+//        for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+//            uriList.add(getPath(data.getClipData().getItemAt(i).getUri()));
+//        }
+
+        if (data.getClipData() != null) {
+            for (int i = 0; i < data.getClipData().getItemCount(); i++) {
+                uriList.add(getPath(data.getClipData().getItemAt(i).getUri()));
+//                    Log.e("gggg", "" + uriList.get(i));
+            }
+        } else if (Build.VERSION.SDK_INT >= 16 && data.getClipData() == null) {
+            uriList.add(getPath(data.getData()));
         }
 
         // TODO here====================
         ArrayList<String> compressList = new ArrayList<>();
         compressList.addAll(compressVideo(uriList));
-        Log.d("dialogMessage", "傳入第二支API的EQNO: "+intoData.getEQNO()+" urlnow:"+urlNow);
-        Log.d("videodialogMessage", "onActivityResult: "+intoData.getEQNO()+" urlnow:"+urlNow);
+        Log.d("dialogMessage", "傳入第二支API的EQNO: "+intoData.getEQNO()+" urlnow:"+urlNow + " 照片url"+uriList.get(urlNow));
+        Log.d("videodialogMessage", "onActivityResult: "+intoData.getEQNO()+" urlnow:"+urlNow+ " 照片url"+uriList.get(urlNow));
         if (pickWhat == 1){
-            onUploadFile(getPath(data.getClipData().getItemAt(urlNow).getUri()), getResourceString(R.string.on_upload_image),intoData);
+            onUploadFile(uriList.get(urlNow), getResourceString(R.string.on_upload_image),intoData);
         }else if(pickWhat ==2){
             onUploadFile(compressList.get(urlNow), getResourceString(R.string.on_upload_vedio),intoData);
         }
